@@ -1,23 +1,41 @@
 use anyhow::Result;
 use assert_cmd::Command;
-use std::{fs, path::{Path, PathBuf}};
-use tempfile::tempdir;
 use pretty_assertions::assert_eq;
+use std::{
+    fs,
+    path::{Path, PathBuf},
+};
+use tempfile::tempdir;
 
-const PRG: &str = "stksplit";
+const PRG: &str = "stk2fasta";
 const STKFILE: &str = "tests/inputs/test.stk";
 
+// --------------------------------------------------
 #[test]
-fn run() -> Result<()> {
+fn run_no_gap() -> Result<()> {
+    run(false)
+}
+
+// --------------------------------------------------
+#[test]
+fn run_gapped() -> Result<()> {
+    run(true)
+}
+
+// --------------------------------------------------
+fn run(gapped: bool) -> Result<()> {
     let outdir = tempdir()?;
-    let output = Command::cargo_bin(PRG)?
-        .args([
-            "-o".to_string(),
-            outdir.path().display().to_string(),
-            STKFILE.to_string(),
-        ])
-        .output()
-        .expect("fail");
+    let mut args = vec![
+        "-o".to_string(),
+        outdir.path().display().to_string(),
+        STKFILE.to_string(),
+    ];
+
+    if !gapped {
+        args.push("-n".to_string());
+    }
+
+    let output = Command::cargo_bin(PRG)?.args(&args).output().expect("fail");
     assert!(output.status.success());
 
     let out_paths: Vec<PathBuf> = fs::read_dir(&outdir)?
@@ -36,11 +54,15 @@ fn run() -> Result<()> {
         &["Charlie1-L_tua.fa", "Chompy-2a_tua.fa", "Chompy-2b-tua.fa"]
     );
 
-    let expected_dir = Path::new("tests/expected");
+    let expected_dir = if gapped {
+        "tests/expected/gapped"
+    } else {
+        "tests/expected/no_gap"
+    };
     for path in out_paths {
         let actual = fs::read_to_string(&path)?;
         let filename = path.file_name().unwrap();
-        let expected = fs::read_to_string(expected_dir.join(filename))?;
+        let expected = fs::read_to_string(Path::new(expected_dir).join(filename))?;
         assert_eq!(actual, expected);
     }
 

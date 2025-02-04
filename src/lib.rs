@@ -1,11 +1,11 @@
 use anyhow::{bail, Result};
 use clap::Parser;
+use regex::Regex;
 use std::{
     fs::{self, File},
     io::{self, BufRead, BufReader, Write},
     path::Path,
 };
-use regex::Regex;
 
 /// Split Stockholm format into FASTA
 #[derive(Debug, Parser)]
@@ -18,6 +18,10 @@ pub struct Args {
     /// Output directory
     #[arg(short, long, default_value = "out")]
     outdir: String,
+
+    /// Strip gap characters (./-)
+    #[arg(short, long)]
+    no_gap: bool,
 }
 
 // --------------------------------------------------
@@ -34,18 +38,27 @@ pub fn run(args: Args) -> Result<()> {
     for line in input.lines().map_while(Result::ok) {
         if comment.is_match(&line) {
             continue;
-        }
-        else if let Some(cap) = meta.captures(&line) {
+        } else if let Some(cap) = meta.captures(&line) {
             if &cap[1] == "GF" && &cap[2] == "ID" {
                 let filename = outdir.join(format!("{}.fa", &cap[3]));
                 outfile = Some(File::create(&filename)?);
             }
-        }
-        else if let Some(cap) = sequence.captures(&line) {
+        } else if let Some(cap) = sequence.captures(&line) {
             match outfile {
-                Some(ref mut fh) => 
-                    writeln!(fh, ">{}\n{}", &cap[1], &cap[2].replace(".", ""))?,
-                _ => bail!("Found sequence before GF ID")
+                Some(ref mut fh) => {
+                    let seq = cap[2].replace(".", "-");
+                    writeln!(
+                        fh,
+                        ">{}\n{}",
+                        &cap[1],
+                        if args.no_gap {
+                            seq.replace("-", "")
+                        } else {
+                            seq
+                        }
+                    )?;
+                }
+                _ => bail!("Found sequence before GF ID"),
             }
         }
     }
