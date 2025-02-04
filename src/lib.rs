@@ -29,7 +29,7 @@ pub fn run(args: Args) -> Result<()> {
     let mut outfile: Option<File> = None;
     let comment = Regex::new(r"^#\s").unwrap();
     let meta = Regex::new(r"^#=(\S{2})\s+(\S{2})\s+(.+)").unwrap();
-    let sequence = Regex::new(r"(\S+)\s+(\S+)").unwrap();
+    let sequence = Regex::new(r"^(\S+)\s+(\S+)$").unwrap();
 
     for line in input.lines().map_while(Result::ok) {
         if comment.is_match(&line) {
