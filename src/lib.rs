@@ -7,7 +7,7 @@ use std::{
 };
 use regex::Regex;
 
-/// Command-line args
+/// Split Stockholm format into FASTA
 #[derive(Debug, Parser)]
 #[command(author, version, about)]
 pub struct Args {
