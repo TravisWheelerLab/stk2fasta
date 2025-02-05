@@ -1,6 +1,7 @@
 use anyhow::Result;
 use assert_cmd::Command;
 use pretty_assertions::assert_eq;
+use rand::{distr::Alphanumeric, Rng};
 use std::{
     fs,
     path::{Path, PathBuf},
@@ -8,7 +9,28 @@ use std::{
 use tempfile::tempdir;
 
 const PRG: &str = "stk2fasta";
-const STKFILE: &str = "tests/inputs/test.stk";
+const VALID_STK: &str = "tests/inputs/test.stk";
+const INVALID_STK: &str = "tests/inputs/bad.stk";
+
+// --------------------------------------------------
+#[test]
+fn dies_invalid_file() -> Result<()> {
+    let bad = gen_bad_file();
+    let output = Command::cargo_bin(PRG)?.arg(&bad).output().expect("fail");
+    assert!(!output.status.success());
+
+    let err = String::from_utf8(output.stderr)?;
+    assert_eq!(err, format!("{bad}: No such file or directory (os error 2)\n"));
+    Ok(())
+}
+
+// --------------------------------------------------
+#[test]
+fn dies_missing_id() -> Result<()> {
+    let output = Command::cargo_bin(PRG)?.arg(INVALID_STK).output().expect("fail");
+    assert!(!output.status.success());
+    Ok(())
+}
 
 // --------------------------------------------------
 #[test]
@@ -28,7 +50,7 @@ fn run(gapped: bool) -> Result<()> {
     let mut args = vec![
         "-o".to_string(),
         outdir.path().display().to_string(),
-        STKFILE.to_string(),
+        VALID_STK.to_string(),
     ];
 
     if !gapped {
@@ -67,4 +89,23 @@ fn run(gapped: bool) -> Result<()> {
     }
 
     Ok(())
+}
+
+// --------------------------------------------------
+fn random_string() -> String {
+    rand::rng()
+        .sample_iter(&Alphanumeric)
+        .take(7)
+        .map(char::from)
+        .collect()
+}
+
+// --------------------------------------------------
+fn gen_bad_file() -> String {
+    loop {
+        let filename = random_string();
+        if fs::metadata(&filename).is_err() {
+            return filename;
+        }
+    }
 }
