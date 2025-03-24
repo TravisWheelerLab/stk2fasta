@@ -1,6 +1,6 @@
 use anyhow::{anyhow, bail, Result};
 use clap::Parser;
-use regex::Regex;
+use regex::{Regex, RegexBuilder};
 use std::{
     fs::{self, File},
     io::{self, BufRead, BufReader, Write},
@@ -22,6 +22,10 @@ pub struct Args {
     /// Strip gap characters (./-)
     #[arg(short, long)]
     no_gap: bool,
+
+    /// Match ID name
+    #[arg(short, long)]
+    grep: String,
 }
 
 // --------------------------------------------------
@@ -35,6 +39,7 @@ pub fn run(args: Args) -> Result<()> {
     let meta = Regex::new(r"^#=(\S{2})\s+(\S{2})\s+(.+)").unwrap();
     let sequence = Regex::new(r"^(\S+)\s+(\S+)$").unwrap();
     let delimiter = Regex::new(r"^[/]{2}$").unwrap();
+    let grep = args.grep.map(|patt| RegexBuilder::new(patt).case_insensitive(true).build().unwrap());
 
     for (line_num, line) in input.lines().map_while(Result::ok).enumerate() {
         if comment.is_match(&line) {
@@ -44,7 +49,10 @@ pub fn run(args: Args) -> Result<()> {
             outfile = None;
         } else if let Some(cap) = meta.captures(&line) {
             if &cap[1] == "GF" && &cap[2] == "ID" {
-                let filename = outdir.join(format!("{}.fa", &cap[3]));
+                let id = &cap[3];
+                if grep.map_or(false, |re| re.is_match(
+                println!("ID '{id}'");
+                let filename = outdir.join(format!("{id}.fa"));
                 outfile = Some(File::create(&filename)?);
             }
         } else if let Some(cap) = sequence.captures(&line) {
