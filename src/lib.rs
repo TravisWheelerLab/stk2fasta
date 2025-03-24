@@ -25,7 +25,7 @@ pub struct Args {
 
     /// Match ID name
     #[arg(short, long)]
-    grep: String,
+    grep: Option<String>,
 }
 
 // --------------------------------------------------
@@ -39,7 +39,12 @@ pub fn run(args: Args) -> Result<()> {
     let meta = Regex::new(r"^#=(\S{2})\s+(\S{2})\s+(.+)").unwrap();
     let sequence = Regex::new(r"^(\S+)\s+(\S+)$").unwrap();
     let delimiter = Regex::new(r"^[/]{2}$").unwrap();
-    let grep = args.grep.map(|patt| RegexBuilder::new(patt).case_insensitive(true).build().unwrap());
+    let grep = args.grep.map(|patt| {
+        RegexBuilder::new(&patt)
+            .case_insensitive(true)
+            .build()
+            .unwrap()
+    });
 
     for (line_num, line) in input.lines().map_while(Result::ok).enumerate() {
         if comment.is_match(&line) {
@@ -50,27 +55,27 @@ pub fn run(args: Args) -> Result<()> {
         } else if let Some(cap) = meta.captures(&line) {
             if &cap[1] == "GF" && &cap[2] == "ID" {
                 let id = &cap[3];
-                if grep.map_or(false, |re| re.is_match(
-                println!("ID '{id}'");
+                if let Some(re) = &grep {
+                    if !re.is_match(id) {
+                        continue;
+                    }
+                }
                 let filename = outdir.join(format!("{id}.fa"));
                 outfile = Some(File::create(&filename)?);
             }
         } else if let Some(cap) = sequence.captures(&line) {
-            match outfile {
-                Some(ref mut fh) => {
-                    let seq = cap[2].replace(".", "-");
-                    writeln!(
-                        fh,
-                        ">{}\n{}",
-                        &cap[1],
-                        if args.no_gap {
-                            seq.replace("-", "")
-                        } else {
-                            seq
-                        }
-                    )?;
-                }
-                _ => bail!("Line {}: Found sequence before GF ID", line_num + 1),
+            if let Some(ref mut fh) = outfile {
+                let seq = cap[2].replace(".", "-");
+                writeln!(
+                    fh,
+                    ">{}\n{}",
+                    &cap[1],
+                    if args.no_gap {
+                        seq.replace("-", "")
+                    } else {
+                        seq
+                    }
+                )?;
             }
         }
     }
