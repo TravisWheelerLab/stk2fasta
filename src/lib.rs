@@ -26,6 +26,10 @@ pub struct Args {
     /// Match ID name
     #[arg(short, long)]
     grep: Option<String>,
+
+    /// Verbose
+    #[arg(short, long)]
+    verbose: bool,
 }
 
 // --------------------------------------------------
@@ -46,7 +50,7 @@ pub fn run(args: Args) -> Result<()> {
             .unwrap()
     });
 
-    for (line_num, line) in input.lines().map_while(Result::ok).enumerate() {
+    for line in input.lines().map_while(Result::ok) {
         if comment.is_match(&line) {
             continue;
         } else if delimiter.is_match(&line) {
@@ -59,6 +63,9 @@ pub fn run(args: Args) -> Result<()> {
                     if !re.is_match(id) {
                         continue;
                     }
+                }
+                if args.verbose {
+                    println!("ID '{id}'");
                 }
                 let filename = outdir.join(format!("{id}.fa"));
                 outfile = Some(File::create(&filename)?);
