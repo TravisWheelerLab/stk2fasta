@@ -58,7 +58,7 @@ pub fn run(args: Args) -> Result<()> {
             outfile = None;
         } else if let Some(cap) = meta.captures(&line) {
             if &cap[1] == "GF" && &cap[2] == "ID" {
-                let id = &cap[3];
+                let id = &cap[3].trim();
                 if let Some(re) = &grep {
                     if !re.is_match(id) {
                         continue;
