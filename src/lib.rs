@@ -46,6 +46,8 @@ pub fn run(args: Args) -> Result<()> {
     });
 
     let mut file = open(&args.filename)?;
+    let mut num_inspected = 0;
+    let mut num_taken = 0;
     loop {
         let mut buf = vec![];
         let bytes = file.read_until(b'\n', &mut buf)?;
@@ -60,12 +62,14 @@ pub fn run(args: Args) -> Result<()> {
         } else if delimiter.is_match(&line) {
             // Reset output file when we reach the end of a record
             outfile = None;
+            num_inspected += 1;
         } else if let Some(cap) = meta.captures(&line) {
             if &cap[1] == "GF" && &cap[2] == "ID" {
                 let id = &cap[3].trim();
                 if grep.len() > 0 && !grep.any(|re| re.is_match(id)) {
                     continue;
                 }
+                num_taken += 1;
                 let filename = outdir.join(format!("{id}.fa"));
                 outfile = Some(File::create(&filename)?);
             }
@@ -86,7 +90,10 @@ pub fn run(args: Args) -> Result<()> {
         }
     }
 
-    println!("Done, see output in '{}'", outdir.display());
+    println!(
+        "Done, inspected {num_inspected}, took {num_taken}. See output in '{}'",
+        outdir.display()
+    );
 
     Ok(())
 }
