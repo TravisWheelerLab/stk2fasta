@@ -1,4 +1,4 @@
-use anyhow::{anyhow, bail, Result};
+use anyhow::{anyhow, Result};
 use clap::Parser;
 use regex::{Regex, RegexBuilder};
 use std::{
@@ -23,13 +23,9 @@ pub struct Args {
     #[arg(short, long)]
     no_gap: bool,
 
-    /// Match ID name
-    #[arg(short, long)]
-    grep: Option<String>,
-
-    /// Verbose
-    #[arg(short, long)]
-    verbose: bool,
+    /// Match ID names
+    #[arg(short, long, num_args = 0..)]
+    grep: Vec<String>,
 }
 
 // --------------------------------------------------
@@ -37,20 +33,28 @@ pub fn run(args: Args) -> Result<()> {
     let outdir = Path::new(&args.outdir);
     fs::create_dir_all(outdir)?;
 
-    let input = open(&args.filename)?;
     let mut outfile: Option<File> = None;
     let comment = Regex::new(r"^#\s").unwrap();
     let meta = Regex::new(r"^#=(\S{2})\s+(\S{2})\s+(.+)").unwrap();
     let sequence = Regex::new(r"^(\S+)\s+(\S+)$").unwrap();
     let delimiter = Regex::new(r"^[/]{2}$").unwrap();
-    let grep = args.grep.map(|patt| {
-        RegexBuilder::new(&patt)
+    let mut grep = args.grep.into_iter().map(|patt| {
+        RegexBuilder::new(&patt.trim().to_lowercase())
             .case_insensitive(true)
             .build()
             .unwrap()
     });
 
-    for line in input.lines().map_while(Result::ok) {
+    let mut file = open(&args.filename)?;
+    loop {
+        let mut buf = vec![];
+        let bytes = file.read_until(b'\n', &mut buf)?;
+        if bytes == 0 {
+            break;
+        }
+        // Converts ISO-8859 to UTF-8
+        let line: String = buf.iter().map(|&c| c as char).collect();
+
         if comment.is_match(&line) {
             continue;
         } else if delimiter.is_match(&line) {
@@ -59,13 +63,8 @@ pub fn run(args: Args) -> Result<()> {
         } else if let Some(cap) = meta.captures(&line) {
             if &cap[1] == "GF" && &cap[2] == "ID" {
                 let id = &cap[3].trim();
-                if let Some(re) = &grep {
-                    if !re.is_match(id) {
-                        continue;
-                    }
-                }
-                if args.verbose {
-                    println!("ID '{id}'");
+                if grep.len() > 0 && !grep.any(|re| re.is_match(id)) {
+                    continue;
                 }
                 let filename = outdir.join(format!("{id}.fa"));
                 outfile = Some(File::create(&filename)?);
