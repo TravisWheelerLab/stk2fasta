@@ -50,12 +50,16 @@ pub fn run(args: Args) -> Result<()> {
             .unwrap()
     });
 
+    let mut num_inspected = 0;
+    let mut num_taken = 0;
+
     for line in input.lines().map_while(Result::ok) {
         if comment.is_match(&line) {
             continue;
         } else if delimiter.is_match(&line) {
             // Reset output file when we reach the end of a record
             outfile = None;
+            num_inspected += 1;
         } else if let Some(cap) = meta.captures(&line) {
             if &cap[1] == "GF" && &cap[2] == "ID" {
                 let id = &cap[3].trim();
@@ -67,6 +71,7 @@ pub fn run(args: Args) -> Result<()> {
                 if args.verbose {
                     println!("ID '{id}'");
                 }
+                num_taken += 1;
                 let filename = outdir.join(format!("{id}.fa"));
                 outfile = Some(File::create(&filename)?);
             }
@@ -87,7 +92,7 @@ pub fn run(args: Args) -> Result<()> {
         }
     }
 
-    println!("Done, see output in '{}'", outdir.display());
+    println!("Done, inspected {num_inspected}, took {num_taken}. see output in '{}'", outdir.display());
 
     Ok(())
 }
