@@ -54,8 +54,10 @@ pub fn run(args: Args) -> Result<()> {
         if bytes == 0 {
             break;
         }
+
         // Converts ISO-8859 to UTF-8
         let line: String = buf.iter().map(|&c| c as char).collect();
+        let line = line.trim();
 
         if comment.is_match(&line) {
             continue;
